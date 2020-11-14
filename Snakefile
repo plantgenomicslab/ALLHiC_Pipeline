@@ -54,3 +54,4 @@ rule bwa_align:
 				part_decision = ".part_00" + str(i)
 			shell("bwa aln -t {threads} {params.datadir}/{params.fasta} hic_r1" + part_decision + ".fastq.gz > sample_R1" + part_decision + ".sai")
 			shell("bwa aln -t {threads} {params.datadir}/{params.fasta} hic_r2" + part_decision + ".fastq.gz > sample_R2" + part_decision + ".sai")
+		### to be completed ###
