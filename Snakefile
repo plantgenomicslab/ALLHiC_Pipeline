@@ -20,8 +20,8 @@ rule all:
 		#expand("{datadir}{fasta}.fai", datadir = config["datadir"], fasta = config["fasta"]),
 		#expand("output/bwa_algn/sample.bwa_algn.part_001.sam")
 		#expand("output/bwa_algn/sample.bwa_algn.sam")
-		expand("output/trims/{fastq}1_val_1.fq.gz", fastq = pairs),
-		expand("output/trims/{fastq}2_val_2.fq.gz", fastq = pairs)
+		expand("output/trims/{fastq}1_trimmed.fq.gz", fastq = pairs),
+		expand("output/trims/{fastq}2_trimmed.fq.gz", fastq = pairs)
 
 rule trim_galore:
 	message: "~-~ Trimming fastq files... ~-~"
@@ -31,9 +31,9 @@ rule trim_galore:
 		fwd = "ref/{fastq}1.fastq.gz",
 		rev = "ref/{fastq}2.fastq.gz"
 	output:
-		"output/trims/{fastq}1_val_1.fq.gz",
-		"output/trims/{fastq}2_val_2.fq.gz"
-	shell: "trim_galore -j {threads} --paired --gzip --max_n 50 --three_prime_clip_R1 10 --three_prime_clip_R2 10 -o output/trims/ {input.fwd} {input.rev}" 
+		"output/trims/{fastq}1_trimmed.fq.gz",
+		"output/trims/{fastq}2_trimmed.fq.gz"
+	shell: "trim_galore -j {threads} --gzip --max_n 50 --three_prime_clip_R1 10 --three_prime_clip_R2 10 -o output/trims/ {input.fwd} {input.rev}" 
 
 rule bwa_index:
 	message: "~-~ Indexing fasta file with bwa... ~-~"
@@ -135,3 +135,101 @@ rule bwa_sampe:
 	run:
 		shell("bwa sampe {params.datadir}{params.fasta} {input[0]} {input[1]} {params.trims}hic_r1.fastq.gz {params.trims}hic_r2.fastq.gz > {output[0]}")
 
+#rule preprocess_sams:
+#	message: "~-~ Preparing SAM files... ~-~"
+#	benchmark: "output/benchmarks/preprocessSAMs.bm"
+#	input:
+#		# Combined SAM file
+#	output:
+#		# To be determined.
+#	shell: "perl bin/ALLHiC/scripts/PreprocessSAMs.pl [input SAM] [draft fasta] MBOI"
+#
+#rule filterBAM:
+#	message: "~-~ Filtering BAM for ALLHiC ~-~"
+#	benchmark: "output/benchmarks/filterBAM.bm"
+#	input:
+#		# preprocess_sams output
+#	output:
+#		# To be determined
+#	shell: "samtools view -bt [draft fasta index] [input] > [output]"
+#
+#rule prune:
+#	message: "~-~ Performing ALLHiC_prune... ~-~"
+#	benchmark: "output/benchmarks/ALLHiC_prune.bm"
+#	input:
+#		# allele table?
+#		# filterBAM output
+#	output:
+#		"output/prune/prunning.bam"
+#	shell: "bin/ALLHiC/bin/ALLHiC_prune -i [input table] -b [input filterBAM] -r [draft fasta];\
+#			mkdir output/prune;\
+#			mv prunning.bam output/prune"
+#
+#####################################################
+##
+## - What to use for enzyme site [-e]?
+## - What value to use for # of groups [-k]?
+##
+#####################################################
+#rule partition:
+#	message: "~-~ Partitioning... ~-~"
+#	benchmark: "output/benchmarks/ALLHiC_partition.bm"
+#	input:
+#		"output/prune/prunning.bam"
+#	output:
+#		#To be determined
+#	shell: "bin/ALLHiC/bin/ALLHiC_partition -b {input[0]} -r [draft fasta] -e [???] -k [???];\
+#			mkdir output/partition/;\
+#			mv [output file] output/partition/"
+#
+#####################################################
+##
+## - Note: clusters and counts can be generated using
+##		"allhic extract"
+##
+#####################################################
+#rule rescue:
+#	message: "~-~ Performing rescue... ~-~"
+#	benchmark: "output/benchmarks/ALLHiC_rescue.bm"
+#	input:
+#		# Partition output
+#		# clusters
+#		# counts
+#	output:
+#		# To be determined.
+#	shell: "bin/ALLHiC/bin/ALLHiC_rescue -b [input] -r [draft fasta] -c [clusters???] -i [counts???];\
+#			mkdir output/rescue/;\
+#			mv [output] output/rescue/"
+#
+#rule optimize:
+#	message: "~-~ Optimizing... ~-~"
+#	benchmark: "output/benchmarks/allhic_optimizing.bm"
+#	input:
+#		# cleaned bam
+#	output:
+#		# To be determined
+#	shell: "bin/ALLHiC/bin/allhic extract [cleaned bam TBD] [draft fasta] --RE [enzyme site];\
+#			mkdir output/optimize/;\
+#			mv [output] output/optimize/;\
+#			bin/ALLHiC/bin/allhic optimize [group#.txt] [cleaned bam clm file];\
+#			mv [output] output/optimize"
+#
+#rule build:
+#	message: "~-~ Building ALLHiC file... ~-~"
+#	benchmark: "output/benchmarks/allhic_build.bm"
+#	input:
+#		#Optimize output
+#	output:
+#		#To be determined
+#	shell: "bin/ALLHiC/bin/ALLHiC_build [draft fasta];\
+#			mkdir output/build/;\
+#			mv output/build"
+#
+#rule plot:
+#	message: "~-~ Plotting build... ~-~"
+#	benchmark: "output/benchmarks/plotting.bm"
+#	input:
+#		#Build output
+#	output:
+#		#To be determined
+#	shell: "bin/ALLHiC/bin/ALLHiC_plot [cleaned bam] [groups.agp] [chrn.list] [heatmap bin size] pdf"
