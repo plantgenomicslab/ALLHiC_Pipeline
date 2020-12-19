@@ -7,8 +7,10 @@ os.makedirs("./output/cluster/logs", exist_ok=True)
 
 REF_DIR = config["datadir"]
 pairs = cgz.getGZPairs(cgz.collectGZ(REF_DIR))
+pair_names = []
 for i in range(0,len(pairs)):
 	pairs[i] = pairs[i].replace("ref/","")
+	pair_names.append(pairs[i].split("/")[-1])
 
 rule all:
 	input:
@@ -18,22 +20,23 @@ rule all:
 		#expand("{datadir}{fasta}.pac", datadir = config["datadir"], fasta = config["fasta"]),
 		#expand("{datadir}{fasta}.sa", datadir = config["datadir"], fasta = config["fasta"]),
 		#expand("{datadir}{fasta}.fai", datadir = config["datadir"], fasta = config["fasta"]),
+		expand("output/bwa_algn/{pair}.bwa_algn.sam", pair = pair_names)
 		#expand("output/bwa_algn/sample.bwa_algn.part_001.sam")
 		#expand("output/bwa_algn/sample.bwa_algn.sam")
-		expand("output/trims/{fastq}1_trimmed.fq.gz", fastq = pairs),
-		expand("output/trims/{fastq}2_trimmed.fq.gz", fastq = pairs)
+		#expand("output/trims/{fastq}1_trimmed.fq.gz", fastq = pairs),
+		#expand("output/trims/{fastq}2_trimmed.fq.gz", fastq = pairs)
 
 rule trim_galore:
 	message: "~-~ Trimming fastq files... ~-~"
 	benchmark: "output/benchmarks/trim_galore_file={fastq}"
 	threads: config["threads"]
 	input:
-		fwd = "ref/{fastq}1.fastq.gz",
-		rev = "ref/{fastq}2.fastq.gz"
+		fwd = expand("ref/{pair}1.fastq.gz", pair = pairs),
+		rev = expand("ref/{pair}2.fastq.gz", pair = pairs)
 	output:
-		"output/trims/{fastq}1_trimmed.fq.gz",
-		"output/trims/{fastq}2_trimmed.fq.gz"
-	shell: "trim_galore -j {threads} --gzip --max_n 50 --three_prime_clip_R1 10 --three_prime_clip_R2 10 -o output/trims/ {input.fwd} {input.rev}" 
+		"output/trimmed_reads/{fastq}1_val_1.fq.gz",
+		"output/trimmed_reads/{fastq}2_val_2.fq.gz"
+	shell: "trim_galore --paired -j {threads} --gzip --max_n 50 --three_prime_clip_R1 10 --three_prime_clip_R2 10 -o output/trims/ {input.fwd} {input.rev} || true" 
 
 rule bwa_index:
 	message: "~-~ Indexing fasta file with bwa... ~-~"
@@ -104,36 +107,37 @@ rule samtools_index:
 #			shell("bwa sampe {params.datadir}{params.fasta} " + R1 + " " + R2 + " {params.trims}hic_r1.fastq.gz {params.trims}hic_r2.fastq.gz > output/bwa_algn/sample.bwa_algn.part_00" + str(i) + ".sam")
 rule bwa_align:
 	message: "~-~ Aligning trimmed reads... ~-~"
-	benchmark: "output/benchmarks/bwa_algn"
-	log: "output/clusters/logs/bwa_align.log"
+	benchmark: "output/benchmarks/bwa_algn_pre={fastq}.bm"
+	log: "output/clusters/logs/bwa_align_pre={fastq}.log"
 	input:
-		"{fastq1}_val_1.fq.gz",
-		"{fastq2}_val_2.fq.gz"
+		"output/trimmed_reads/{fastq}1_val_1.fq.gz",
+		"output/trimmed_reads/{fastq}2_val_2.fq.gz"
 	output:
-		"output/bwa_algn/sample_R1.sai",
-		"output/bwa_algn/sample_R2.sai"
+		"output/bwa_algn/{fastq}_R1.sai",
+		"output/bwa_algn/{fastq}_R2.sai"
 	params:
 		fasta = config["fasta"],
 		datadir = config["datadir"],
 		trims = config["trims"]
 	run:
-		shell("bwa aln -t {threads} {params.datadir}{params.fasta} {params.trims}hic_r1.fastq.gz > {output[0]}")
-		shell("bwa aln -t {threads} {params.datadir}{params.fasta} {params.trims}hic_r2.fastq.gz > {output[1]}")
+		os.makedirs("output/bwa_algn/", exist_ok=True)
+		shell("bwa aln -t {threads} {params.datadir}{params.fasta} {input[0]} > {output[0]}")
+		shell("bwa aln -t {threads} {params.datadir}{params.fasta} {input[1]} > {output[1]}")
 
 rule bwa_sampe:
 	message: "~-~ Bwa sampe... ~-~"
-	benchmark: "output/benchmarks/bwa_sampe.bm"
+	benchmark: "output/benchmarks/bwa_sampe_pre={fastq}.bm"
 	input:
-		"output/bwa_algn/sample_R1.sai",
-		"output/bwa_algn/sample_R2.sai"
+		"output/bwa_algn/{fastq}_R1.sai",
+		"output/bwa_algn/{fastq}_R2.sai"
 	output:
-		"output/bwa_algn/sample.bwa_algn.sam"
+		"output/bwa_algn/{fastq}.bwa_algn.sam"
 	params:
 		fasta = config["fasta"],
 		datadir = config["datadir"],
 		trims = config["trims"]
 	run:
-		shell("bwa sampe {params.datadir}{params.fasta} {input[0]} {input[1]} {params.trims}hic_r1.fastq.gz {params.trims}hic_r2.fastq.gz > {output[0]}")
+		shell("bwa sampe {params.datadir}{params.fasta} {input[0]} {input[1]} output/trimmed_reads/hic_r1_val_1.fq.gz output/trimmed_reads/hic_r2_val_2.fq.gz > {output[0]}")
 
 #rule preprocess_sams:
 #	message: "~-~ Preparing SAM files... ~-~"
