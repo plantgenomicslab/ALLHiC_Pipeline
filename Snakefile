@@ -1,44 +1,50 @@
 import os
 from bin import collectGZ as cgz
+from bin import genSplitString as genSS
 configfile: "./config.json"
 os.makedirs("./output/", exist_ok=True)
 os.makedirs("./output/benchmarks/", exist_ok=True)
 os.makedirs("./output/cluster/logs", exist_ok=True)
 
+CWD = os.getcwd()
+SFD = __file__
 REF_DIR = config["datadir"]
-pairs = cgz.getGZPairs(cgz.collectGZ(REF_DIR))
-pair_names = []
-for i in range(0,len(pairs)):
-	pairs[i] = pairs[i].replace("ref/","")
-	pair_names.append(pairs[i].split("/")[-1])
-
+PAIRS = cgz.getGZPairs(cgz.collectGZ(REF_DIR))
+PAIR_NAMES = []
+for i in range(0,len(PAIRS)):
+	PAIRS[i] = PAIRS[i].replace("ref/","")
+	PAIR_NAMES.append(PAIRS[i].split("/")[-1])
+PARTS = genSS.partSuffixes(str(config["split"]))
+STRANDS = ["1","2"]
 rule all:
 	input:
-		#expand("{datadir}{fasta}.amb", datadir = config["datadir"], fasta = config["fasta"]),
-		#expand("{datadir}{fasta}.ann", datadir = config["datadir"], fasta = config["fasta"]),
-		#expand("{datadir}{fasta}.bwt", datadir = config["datadir"], fasta = config["fasta"]),
-		#expand("{datadir}{fasta}.pac", datadir = config["datadir"], fasta = config["fasta"]),
-		#expand("{datadir}{fasta}.sa", datadir = config["datadir"], fasta = config["fasta"]),
-		#expand("{datadir}{fasta}.fai", datadir = config["datadir"], fasta = config["fasta"]),
-		#expand("output/bwa_algn/{pair}.bwa_algn.sam", pair = pair_names)
-		#expand("output/bwa_algn/sample.bwa_algn.part_001.sam")
+		expand("ref/{fasta}.amb", fasta = config["fasta"]),
+		expand("ref/{fasta}.ann", fasta = config["fasta"]),
+		expand("ref/{fasta}.bwt", fasta = config["fasta"]),
+		expand("ref/{fasta}.pac", fasta = config["fasta"]),
+		expand("ref/{fasta}.sa", fasta = config["fasta"]),
+		expand("ref/{fasta}.fai", fasta = config["fasta"]),
+		#expand("output/bwa_algn/{pair}_{strand}.sai", pair = PAIR_NAMES, strand = STRANDS),
+		expand("output/bwa_algn/{pair}_{strand}_part_{parts}.sai", pair = PAIR_NAMES, strand = STRANDS, parts = PARTS),
+		expand("output/bwa_algn/{pair}_{part}.sam", pair = PAIR_NAMES, part = PARTS),
+		expand("output/filterSAM/{pair}_{part}.REduced.paired_only.bam", pair = PAIR_NAMES, part = PARTS),
+		expand("output/filterSAM/{pair}.REduced.paired_only.bam.merged", pair = PAIR_NAMES),
+		expand("output/filterSAM/{pair}.clean.bam", pair = PAIR_NAMES),
+		"output/graphs/500K_all_chrs.pdf"
+		#expand("output/filterSAM/{fastq}.clean.bam", fastq = PAIR_NAMES)
+		#expand("output/splits/{pair}.part_001.sam", pair = PAIR_NAMES),
 		#expand("output/bwa_algn/sample.bwa_algn.sam")
 		#expand("output/trims/{fastq}1_trimmed.fq.gz", fastq = pairs),
 		#expand("output/trims/{fastq}2_trimmed.fq.gz", fastq = pairs)
-		#expand("output/filterSAM/{fastq}.REduced.paired_only.bam", fastq=pair_names)
-		#expand("output/filterSAM/{fastq}.clean.sam", fastq=pair_names)
-		expand("output/ALLHiC/{fastq}.clean.counts_AAGCTT.16g1.tour", fastq=pair_names),
-		"output/ALLHiC/groups.agp",
-		#expand("500K_{fastq}.clean.counts_AAGCTT.16g1.pdf", fastq = pair_names)
-		"output/graphs/500K_all_chrs.pdf"
 
 rule trim_galore:
 	message: "~-~ Trimming fastq files... ~-~"
-	benchmark: "output/benchmarks/trim_galore_file={fastq}"
+	benchmark: "output/benchmarks/trim_galore_file={fastq}.bm"
+	log: "output/cluster/logs/trim_galore_file={fastq}.log"
 	threads: config["threads"]
 	input:
-		fwd = expand("ref/{pair}1.fastq.gz", pair = pairs),
-		rev = expand("ref/{pair}2.fastq.gz", pair = pairs)
+		fwd = expand("ref/{pre}1.fastq.gz", pre = PAIRS),
+		rev = expand("ref/{pre}2.fastq.gz", pre = PAIRS)
 	output:
 		"output/trimmed_reads/{fastq}1_val_1.fq.gz",
 		"output/trimmed_reads/{fastq}2_val_2.fq.gz"
@@ -46,128 +52,107 @@ rule trim_galore:
 
 rule bwa_index:
 	message: "~-~ Indexing fasta file with bwa... ~-~"
-	benchmark: "output/benchmarks/bwa_index_file={fasta}"
+	benchmark: "output/benchmarks/bwa_index_file={fasta}.bm"
+	log: "output/cluster/logs/bwa_index_file={fasta}.log"
 	input:
-		fasta = "{fasta}"
+	#	fasta = "ref/{fasta}"
 	output:
-		"{fasta}.amb",
-		"{fasta}.ann",
-		"{fasta}.bwt",
-		"{fasta}.pac",
-		"{fasta}.sa"
+		"ref/{fasta}.amb",
+		"ref/{fasta}.ann",
+		"ref/{fasta}.bwt",
+		"ref/{fasta}.pac",
+		"ref/{fasta}.sa"
 	shell:
 		"bwa index -a bwtsw {input.fasta}"
 
 rule samtools_index:
 	message: "~-~ Indexing fasta file with samtools... ~-~"
-	benchmark: "output/benchmarks/samtools_index_file={fasta}"
+	benchmark: "output/benchmarks/samtools_index_file={fasta}.bm"
+	log: "output/cluster/logs/samtools_index_file={fasta}.log"
 	input:
-		fasta = "{fasta}"
+		fasta = "ref/{fasta}"
 	output:
-		"{fasta}.fai"
+		"ref/{fasta}.fai"
 	shell:
 		"samtools faidx {input.fasta}"
 
-#rule bwa_align:
-#	message: "~-~ Aligning trimmed reads... ~-~"
-#	benchmark: "output/benchmarks/bwa_algn"
-#	log: "output/clusters/logs/bwa_align.log"
-#	output:
-#		"output/bwa_algn/hic_r1.part_001.fastq.gz",
-#		"output/bwa_algn/hic_r2.part_001.fastq.gz"
-#	params:
-#		split = config["split"],
-#		fasta = config["fasta"],
-#		datadir = config["datadir"],
-#		trims = config["trims"]
-#	run:
-#		part_decision = ""
-#		shell("seqkit split2 -p {params.split} {params.trims}/hic_r1.fastq.gz --out-dir output/bwa_algn/")
-#		shell("seqkit split2 -p {params.split} {params.trims}/hic_r2.fastq.gz --out-dir output/bwa_algn/")
-#		for i in range(1,params.split+1):
-#			part_decision = ".part_00" + str(i)
-#			R1 = "output/bwa_algn/sample_R1" + part_decision + ".sai"
-#			R2 = "output/bwa_algn/sample_R2" + part_decision + ".sai"
-#			shell("bwa aln -t {threads} {params.datadir}{params.fasta} output/bwa_algn/hic_r1" + part_decision + ".fastq.gz > " + R1)
-#			shell("bwa aln -t {threads} {params.datadir}{params.fasta} output/bwa_algn/hic_r2" + part_decision + ".fastq.gz > " + R2)
-#			#shell("bwa sampe {params.datadir}{params.fasta} " + R1 + " " + R2 + " {params.trims}hic_R1.fastq.gz {params.trims}hic_R2.fastq.gz > {output[0]}")
+rule split:
+	message: "~-~ Splitting fastq files... ~-~"
+	threads: config["threads"]
+	benchmark: "output/benchmarks/splitting_file={pair}_{strand}_{parts}.bm"
+	log: "output/cluster/logs/splitting_file={pair}_{strand}_{parts}.log"
+	input:
+		"output/trimmed_reads/{pair}{strand}_val_{strand}.fq.gz",
+		expand("ref/{fasta}.amb", fasta = config["fasta"]),
+		expand("ref/{fasta}.fai", fasta = config["fasta"])
+	output:
+		"output/trimmed_reads/{pair}{strand}_val_{strand}.part_{parts}.fq.gz"
+	shell: "seqkit split2 -j {threads} -p 2 {input[0]} --out-dir output/trimmed_reads"
 
-#rule bwa_sampe:
-#	message: "~-~ Bwa sampe... ~-~"
-#	benchmark: "output/benchmarks/bwa_sampe.bm"
-#	input:
-#		"output/bwa_algn/hic_r1.part_001.fastq.gz",
-#		"output/bwa_algn/hic_r2.part_001.fastq.gz"
-#	output:
-#		"output/bwa_algn/sample.bwa_algn.part_001.sam"
-#	params:
-#		split = config["split"],
-#		fasta = config["fasta"],
-#		datadir = config["datadir"],
-#		trims = config["trims"]
-#	run:
-#		for i in range(1,params.split+1):
-#			part_decision = ".part_00" + str(i)
-#			R1 = "output/bwa_algn/sample_R1" + part_decision + ".sai"
-#			R2 = "output/bwa_algn/sample_R2" + part_decision + ".sai"
-#			shell("bwa sampe {params.datadir}{params.fasta} " + R1 + " " + R2 + " {params.trims}hic_r1.fastq.gz {params.trims}hic_r2.fastq.gz > output/bwa_algn/sample.bwa_algn.part_00" + str(i) + ".sam")
 rule bwa_align:
 	message: "~-~ Aligning trimmed reads... ~-~"
-	benchmark: "output/benchmarks/bwa_algn_pre={fastq}.bm"
-	log: "output/clusters/logs/bwa_align_pre={fastq}.log"
+	threads: config["threads"]
+	benchmark: "output/benchmarks/bwa_algn_file={pair}{strand}_{parts}.bm"
+	log: "output/cluster/logs/bwa_algn_file={pair}{strand}_{parts}.log"
 	input:
-		"output/trimmed_reads/{fastq}1_val_1.fq.gz",
-		"output/trimmed_reads/{fastq}2_val_2.fq.gz"
+		"output/trimmed_reads/{pair}{strand}_val_{strand}.part_{parts}.fq.gz"
 	output:
-		"output/bwa_algn/{fastq}_R1.sai",
-		"output/bwa_algn/{fastq}_R2.sai"
-	params:
-		fasta = config["fasta"],
-		datadir = config["datadir"],
-		trims = config["trims"]
-	run:
-		os.makedirs("output/bwa_algn/", exist_ok=True)
-		shell("bwa aln -t {threads} {params.datadir}{params.fasta} {input[0]} > {output[0]}")
-		shell("bwa aln -t {threads} {params.datadir}{params.fasta} {input[1]} > {output[1]}")
+		"output/bwa_algn/{pair}_{strand}_part_{parts}.sai"
+	shell: "mkdir bwa_algn/ || true;\
+			bwa aln -t {threads} ref/canu.contigs.fasta {input[0]} > {output[0]}"
 
 rule bwa_sampe:
 	message: "~-~ Bwa sampe... ~-~"
-	benchmark: "output/benchmarks/bwa_sampe_pre={fastq}.bm"
+	benchmark: "output/benchmarks/bwa_sampe_pre={pair}_{parts}.bm"
+	log: "output/cluster/logs/bwa_sampe_pre={pair}_{parts}.log"
 	input:
-		"output/bwa_algn/{fastq}_R1.sai",
-		"output/bwa_algn/{fastq}_R2.sai"
+		"output/bwa_algn/{pair}_1_part_{parts}.sai",
+		"output/bwa_algn/{pair}_2_part_{parts}.sai",
+		"output/trimmed_reads/{pair}1_val_1.part_{parts}.fq.gz",
+		"output/trimmed_reads/{pair}2_val_2.part_{parts}.fq.gz"
 	output:
-		"output/bwa_algn/{fastq}.sam"
+		"output/bwa_algn/{pair}_{parts}.sam"
 	params:
 		fasta = config["fasta"],
 		datadir = config["datadir"],
 		trims = config["trims"]
-	run:
-		shell("bwa sampe {params.datadir}{params.fasta} {input[0]} {input[1]} output/trimmed_reads/hic_r1_val_1.fq.gz output/trimmed_reads/hic_r2_val_2.fq.gz > {output[0]}")
+	shell: "bwa sampe ref/{params.fasta} {input[0]} {input[1]} {input[2]} {input[3]} > {output[0]}"
 
 rule preprocess_sams:
 	message: "~-~ Preparing SAM files... ~-~"
-	benchmark: "output/benchmarks/preprocessSAMs_pre={fastq}.bm"
+	benchmark: "output/benchmarks/preprocessSAMs_pre={pair}.part_{part}.bm"
+	log: "output/cluster/logs/preprocessSAMs_pre={pair}.part_{part}.log"
 	input:
-		"output/bwa_algn/{fastq}.sam"
+		"output/bwa_algn/{pair}_{part}.sam"
 	output:
-		"output/filterSAM/{fastq}.REduced.paired_only.bam"
+		"output/filterSAM/{pair}_{part}.REduced.paired_only.bam"
 	params:
 		fasta = config["fasta"]
 	shell: "cd bin/ALLHiC/scripts/;\
 			perl PreprocessSAMs.pl ../../../{input[0]} ../../../ref/{params.fasta} MBOI;\
 			mkdir ../../../output/filterSAM/ || true;\
-			mv ../../../output/bwa_algn/*REduced* ../../../output/filterSAM/;\
+			mv ../../../output/bwa_algn/*REduced* ../../../output/filterSAM/ || true;\
 			cd ../../../"
+
+rule merge_bam:
+	message: "~-~ Merging bam files... ~-~"
+	threads: config["threads"]
+	benchmark: "output/benchmarks/merge_bams.file={pair}.bm"
+	input:
+		expand("output/filterSAM/{pair}_{part}.REduced.paired_only.bam", pair = PAIR_NAMES, part = PARTS)
+	output:
+		"output/filterSAM/{pair}.REduced.paired_only.bam.merged"
+	shell: "samtools merge -u {output[0]} {input[0]} -@ {threads}" 
 
 rule filterBAM:
 	message: "~-~ Filtering BAM for ALLHiC ~-~"
-	benchmark: "output/benchmarks/filterBAM_pre={fastq}.bm"
+	benchmark: "output/benchmarks/filterBAM_pre={pair}.bm"
+	log: "output/cluster/logs/filterBAM_pre={pair}.log"
 	input:
-		"output/filterSAM/{fastq}.REduced.paired_only.bam"
+		"output/filterSAM/{pair}.REduced.paired_only.bam.merged"
 	output:
-		"output/filterSAM/{fastq}.clean.sam",
-		"output/filterSAM/{fastq}.clean.bam"
+		"output/filterSAM/{pair}.clean.sam",
+		"output/filterSAM/{pair}.clean.bam"
 	params:
 		fasta = config["fasta"]
 	shell: "perl bin/ALLHiC/scripts/filterBAM_forHiC.pl {input[0]} {output[0]};\
@@ -194,6 +179,7 @@ rule filterBAM:
 rule partition:
 	message: "~-~ Partitioning... ~-~"
 	benchmark: "output/benchmarks/ALLHiC_partition_pre={fastq}.bm"
+	log: "output/cluster/logs/ALLHiC_partition_pre={fastq}.log"
 	input:
 		"output/filterSAM/{fastq}.clean.bam"
 	output:
@@ -229,6 +215,7 @@ rule partition:
 rule optimize:
 	message: "~-~ Optimizing... ~-~"
 	benchmark: "output/benchmarks/allhic_optimizing_pre={fastq}.bm"
+	log: "output/cluster/logs/allhic_optimizing_pre={fastq}.log"
 	input:
 		group = "output/ALLHiC/{fastq}.clean.counts_AAGCTT.16g1.txt",
 		clm = "output/ALLHiC/{fastq}.clean.clm"
@@ -239,8 +226,9 @@ rule optimize:
 rule build:
 	message: "~-~ Building ALLHiC file... ~-~"
 	benchmark: "output/benchmarks/allhic_build.bm"
+	log: "output/cluster/logs/allhic_build.log"
 	input:
-		expand("output/ALLHiC/{fastq}.clean.counts_AAGCTT.16g1.tour", fastq=pair_names)
+		expand("output/ALLHiC/{fastq}.clean.counts_AAGCTT.16g1.tour", fastq=PAIR_NAMES)
 	output:
 		"output/ALLHiC/groups.agp",
 		"output/ALLHiC/groups.asm.fasta"
@@ -253,7 +241,7 @@ rule build:
 rule chrn_list:
 	message: "~-~ Generating chromosome list... ~-~"
 	benchmark: "output/benchmarks/chrnList.bm"
-	log: "output/clusters/logs/chrnList.log"
+	log: "output/cluster/logs/chrnList.log"
 	input:
 		"output/ALLHiC/groups.asm.fasta"
 	output:
@@ -265,8 +253,9 @@ rule chrn_list:
 rule plot:
 	message: "~-~ Plotting heatmap... ~-~"
 	benchmark: "output/benchmarks/plotting_pre.bm"
+	log: "output/cluster/logs/plotting_pre.log"
 	input:
-		expand("output/filterSAM/{fastq}.clean.bam", fastq=pair_names),
+		expand("output/filterSAM/{fastq}.clean.bam", fastq=PAIR_NAMES),
 		"output/ALLHiC/groups.agp",
 		"output/ALLHiC/chrn.list"
 	output:
