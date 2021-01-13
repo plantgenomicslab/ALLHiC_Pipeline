@@ -31,11 +31,11 @@ The pipeline may be activated wherever the user wishes, but the snakefile needs 
 	* split:
 	* threads:
 2. Run snakemake
-	Example Command: snakemake -s {path to snakefile} --cores {# of cores}
+	* Example Command: snakemake -s {path to snakefile} --cores {# of cores}
 
 (B) With Cluster
 1. Same as step 1 from (A).
 2. Modify the cluster.json file to meet your needs.
 3. Modify the run.sh file to meet your needs.
 4. Run run.sh
-	sh run.sh
+	* sh run.sh
