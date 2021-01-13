@@ -7,7 +7,6 @@ os.makedirs("./output/benchmarks/", exist_ok=True)
 #os.makedirs("./output/cluster/logs", exist_ok=True)
 
 CWD = os.getcwd()
-SFD = __file__
 REF_DIR = config["datadir"]
 if REF_DIR[-1] == "/":
 	REF_DIR = REF_DIR[:-1]
@@ -30,18 +29,12 @@ rule all:
 		expand("{ref_dir}/{fasta}.pac", ref_dir = REF_DIR, fasta = config["fasta"]),
 		expand("{ref_dir}/{fasta}.sa", ref_dir = REF_DIR, fasta = config["fasta"]),
 		expand("{ref_dir}/{fasta}.fai", ref_dir = REF_DIR, fasta = config["fasta"]),
-		#expand("output/bwa_algn/{pair}_{strand}.sai", pair = PAIR_NAMES, strand = STRANDS),
 		expand("output/bwa_algn/{pair}_{strand}_part_{parts}.sai", pair = PAIR_NAMES, strand = STRANDS, parts = PARTS),
 		expand("output/bwa_algn/{pair}_{part}.sam", pair = PAIR_NAMES, part = PARTS),
 		expand("output/filterSAM/{pair}_{part}.REduced.paired_only.bam", pair = PAIR_NAMES, part = PARTS),
 		expand("output/filterSAM/{pair}.REduced.paired_only.bam.merged", pair = PAIR_NAMES),
 		expand("output/filterSAM/{pair}.clean.bam", pair = PAIR_NAMES),
 		"output/graphs/500K_all_chrs.pdf"
-		#expand("output/filterSAM/{fastq}.clean.bam", fastq = PAIR_NAMES)
-		#expand("output/splits/{pair}.part_001.sam", pair = PAIR_NAMES),
-		#expand("output/bwa_algn/sample.bwa_algn.sam")
-		#expand("output/trims/{fastq}1_trimmed.fq.gz", fastq = pairs),
-		#expand("output/trims/{fastq}2_trimmed.fq.gz", fastq = pairs)
 
 rule trim_galore:
 	message: "~-~ Trimming fastq files... ~-~"
