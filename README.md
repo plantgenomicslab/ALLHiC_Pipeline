@@ -10,7 +10,7 @@ Pipeline for Straightforward Usage of ALLHic
 6. snakemake
 7. bwa
 8. Anaconda (optional, necessary for simple environment)
-*Note: 3-7 included in env.yml if installed using Anaconda.
+* Note: 3-7 included in env.yml if installed using Anaconda.
 
 ### Environment
 The pipeline may be activated wherever the user wishes, but the snakefile needs to have the appropriate subfiles and subdirectories accompanying it in the same directory.
@@ -18,7 +18,7 @@ The pipeline may be activated wherever the user wishes, but the snakefile needs 
 2. getFalen.pl must be downloaded individually and placed in the bin subdirectory.
 3. The rest of the software may be downloaded individually or through Anaconda.
 	 conda env create -f env.yml
-	 *Note: Default environment name is "allhic." Name can be modified in env.yml file, simply change the text after "name:"
+	 * Note: Default environment name is "allhic." Name can be modified in env.yml file, simply change the text after "name:"
    
 ### Usage
 (A) Without Cluster
