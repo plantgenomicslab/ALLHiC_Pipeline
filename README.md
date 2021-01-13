@@ -2,8 +2,8 @@
 Pipeline for Straightforward Usage of ALLHic
 
 # PREREQUISITES
-1. ALLHiC Software
-2. getFalen.pl (obtained from tangerzhang's my_script repository on GitHub)
+1. ALLHiC Software (https://github.com/tangerzhang/ALLHiC)
+2. getFalen.pl (obtained from tangerzhang's my_script repository on GitHub) (https://github.com/tangerzhang/my_script/blob/master/getFaLen.pl)
 3. samtools
 4. seqkit
 5. trim_galore
