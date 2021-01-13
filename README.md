@@ -2,7 +2,6 @@
 Pipeline for Straightforward Usage of ALLHic
 
 # PREREQUISITES
-======
 1. ALLHiC Software
 2. getFalen.pl (obtained from tangerzhang's my_script repository on GitHub)
 3. samtools
@@ -14,7 +13,6 @@ Pipeline for Straightforward Usage of ALLHic
 *Note: 3-7 included in env.yml if installed using Anaconda.
 
 # Environment
-======
 The pipeline may be activated wherever the user wishes, but the snakefile needs to have the appropriate subfiles and subdirectories accompanying it in the same directory.
 1. The ALLHiC software file must be downloaded whole (such as with git clone) and placed into the bin subdirectory.
 2. getFalen.pl must be downloaded individually and placed in the bin subdirectory.
@@ -23,7 +21,6 @@ The pipeline may be activated wherever the user wishes, but the snakefile needs 
 	 *Note: Default environment name is "allhic." Name can be modified in env.yml file, simply change the text after "name:"
    
 # Usage
-======
 (A) Without Cluster
 1. Modify the config.json file to meet your needs and environment.
 	* datadir: Path to directory that contains all your reference files, such as fasta and fastq files.
