@@ -15,10 +15,12 @@ Pipeline for Straightforward Usage of ALLHic
 ### Environment
 The pipeline may be activated wherever the user wishes, but the snakefile needs to have the appropriate subfiles and subdirectories accompanying it in the same directory.
 1. The ALLHiC software file must be downloaded whole (such as with git clone) and placed into the bin subdirectory.
+> git clone https://github.com/tangerzhang/ALLHiC.git
 2. getFalen.pl must be downloaded individually and placed in the bin subdirectory.
+> wget https://raw.githubusercontent.com/tangerzhang/my_script/master/getFaLen.pl
 3. The rest of the software may be downloaded individually or through Anaconda.
-	 conda env create -f env.yml
-	 * Note: Default environment name is "allhic." Name can be modified in env.yml file, simply change the text after "name:"
+> conda env create -f env.yml
+* Note: Default environment name is "allhic." Name can be modified in env.yml file, simply change the text after "name:"
    
 ### Usage
 (A) Without Cluster
@@ -31,11 +33,11 @@ The pipeline may be activated wherever the user wishes, but the snakefile needs 
 	* split:
 	* threads:
 2. Run snakemake
-	* Example Command: snakemake -s {path to snakefile} --cores {# of cores}
+> Example Command: snakemake -s {path to snakefile} --cores {# of cores}
 
 (B) With Cluster
 1. Same as step 1 from (A).
 2. Modify the cluster.json file to meet your needs.
 3. Modify the run.sh file to meet your needs.
 4. Run run.sh
-	* sh run.sh
+> sh run.sh
