@@ -28,10 +28,10 @@ The pipeline may be activated wherever the user wishes, but the snakefile needs 
 	* datadir: Path to directory that contains all your reference files, such as fasta and fastq files.
 	* snakedir: Path to the directory where the ALLHiC pipeline snakefile is contained (should also contain the accompanied bin subdirectory).
 	* fasta: Name of the fasta file to use.
-	* groups:
-	* enzyme_sites:
-	* split:
-	* threads:
+	* groups: Number of Groups
+	* enzyme_sites: Sequence to detect (HindIII: AAGCTT; MboI: GATC, Arima).
+	* split: Number of splits to make to original fastq files.
+	* threads: Threads
 2. Run snakemake  
 `snakemake -s {path to snakefile} --cores {# of cores}`
 
