@@ -1,0 +1,13 @@
+{
+  "__default__": {
+    "account": "", //Needs to be added
+    "memory": "64g",
+    "name": "JOBNAME.{rule}.{wildcards}",
+    "ncpus": 4,
+    "nodes": 1,
+    "partition": "", //Needs to be added
+    "time": "10-08:00:00",
+    "output": "output/cluster/logs/{rule}.{wildcards}.out",
+    "error": "output/cluster/logs/{rule}.{wildcards}.err"
+  }
+}
