@@ -19,8 +19,8 @@ The pipeline may be activated wherever the user wishes, but the snakefile needs 
 2. getFalen.pl must be downloaded individually and placed in the bin subdirectory.  
 `wget https://raw.githubusercontent.com/tangerzhang/my_script/master/getFaLen.pl`
 3. The rest of the software may be downloaded individually or through Anaconda.  
-`conda env create -f env.yml`
-> Note: Default environment name is "allhic." Name can be modified in env.yml file, simply change the text after "name:"
+`conda env create -f env/env.yml`
+> Note: Default environment name is "allhic." Name can be modified in env/env.yml file, simply change the text after "name:"
    
 ### Usage
 (A) Without Cluster
