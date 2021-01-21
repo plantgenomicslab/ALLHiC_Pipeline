@@ -1,0 +1,9 @@
+{
+	"datadir": "./", //Path to directory that contains all your reference files, such as fasta and fastq files.
+	"snakedir": "", //Path to the directory where the ALLHiC pipeline snakefile is contained (should also contain the accompanied bin subdirectory).
+	"fasta": "", //Name of the fasta file to use.
+	"groups": 16, //Number of groups.
+	"enzyme_sites": "AAGCTT", //Sequence to detect (HindIII: AAGCTT; MboI: GATC, Arima).
+	"split": 4, //Number of splits to make to original files.
+	"threads": 4 //Threads
+}
