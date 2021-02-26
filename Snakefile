@@ -22,7 +22,6 @@ for i in PAIRS_R1[0].split("/")[0:-1]:
 	FQ_DIR = FQ_DIR +i + "/"
 for i in range(0,len(PAIRS_R1)):
 	title = PAIRS_R1[i].split("/")[-1]
-	title = title.replace(".fastq.gz","")
 	title = title.replace(".fq.gz","")
 	part1,part2 = cgz.get_parts(title)
 	PAIR_NAMES_1.append(part1)
@@ -34,14 +33,15 @@ for i in range(1, int(config["groups"])+1):
 
 rule all:
 	input:
-#		expand("{ref_dir}/{fasta}.amb", ref_dir = REF_DIR, fasta = config["fasta"]),
-#		expand("{ref_dir}/{fasta}.ann", ref_dir = REF_DIR, fasta = config["fasta"]),
-#		expand("{ref_dir}/{fasta}.bwt", ref_dir = REF_DIR, fasta = config["fasta"]),
-#		expand("{ref_dir}/{fasta}.pac", ref_dir = REF_DIR, fasta = config["fasta"]),
-#		expand("{ref_dir}/{fasta}.sa", ref_dir = REF_DIR, fasta = config["fasta"]),
-#		expand("{ref_dir}/{fasta}.fai", ref_dir = REF_DIR, fasta = config["fasta"]),
-#		expand("output/ALLHiC/sorted_collection.clean.counts_{enzyme}.{groups}g{group_section}.tour", enzyme = config["enzyme_sites"], groups = config["groups"], group_section = GROUP_LIST)
-#		"output/graphs/500K_all_chrs.pdf"
+		expand("{ref_dir}/{fasta}.amb", ref_dir = REF_DIR, fasta = config["fasta"]),
+		expand("{ref_dir}/{fasta}.ann", ref_dir = REF_DIR, fasta = config["fasta"]),
+		expand("{ref_dir}/{fasta}.bwt", ref_dir = REF_DIR, fasta = config["fasta"]),
+		expand("{ref_dir}/{fasta}.pac", ref_dir = REF_DIR, fasta = config["fasta"]),
+		expand("{ref_dir}/{fasta}.sa", ref_dir = REF_DIR, fasta = config["fasta"]),
+		expand("{ref_dir}/{fasta}.fai", ref_dir = REF_DIR, fasta = config["fasta"]),
+		#expand("output/trimmed_reads/{prefix}r1{suffix}.fq.gz", prefix = PAIR_NAMES_1, suffix = PAIR_NAMES_2)
+		expand("output/ALLHiC/sorted_collection.clean.fixed.counts_{enzyme}.{groups}g{group_section}.tour", enzyme = config["enzyme_sites"], groups = config["groups"], group_section = GROUP_LIST)
+		#"output/graphs/500K_all_chrs.pdf"
 
 rule trim_galore:
 	message: "~-~ Trimming fastq files... ~-~"
@@ -85,14 +85,14 @@ rule samtools_index:
 rule split:
 	message: "~-~ Splitting fastq files... ~-~"
 	threads: config["threads"]
-	benchmark: "output/benchmarks/splitting_file={prefix}.part_{parts}.bm"
+	benchmark: "output/benchmarks/splitting_file={prefix}_{strand}.bm"
 	#log: "output/cluster/logs/splitting_file={pair}_{strand}_{parts}.log"
 	input:
-		"output/trimmed_reads/{prefix}.fq.gz",
+		"output/trimmed_reads/{prefix}_val_{strand}.fq.gz",
 		expand("ref/{fasta}.amb", fasta = config["fasta"]),
 		expand("ref/{fasta}.fai", fasta = config["fasta"])
 	output:
-		"output/trimmed_reads/{prefix}.part_{parts}.fq.gz"
+		expand("output/trimmed_reads/{{prefix}}_val_{{strand}}.part_{parts}.fq.gz", parts = PARTS)
 	params:
 		split = config["split"]
 	shell: "seqkit split2 -j {threads} -p {params.split} {input[0]} --out-dir output/trimmed_reads"
@@ -100,12 +100,12 @@ rule split:
 rule bwa_align:
 	message: "~-~ Aligning trimmed reads... ~-~"
 	threads: config["threads"]
-	benchmark: "output/benchmarks/bwa_algn_file={prefix}.part_{parts}.bm"
+	benchmark: "output/benchmarks/bwa_algn_file={prefix}_{strand}.part_{parts}.bm"
 	#log: "output/cluster/logs/bwa_algn_file={pair}{strand}_{parts}.log"
 	input:
-		"output/trimmed_reads/{prefix}.part_{parts}.fq.gz"
+		"output/trimmed_reads/{prefix}_val_{strand}.part_{parts}.fq.gz"
 	output:
-		"output/bwa_algn/{prefix}.part_{parts}.sai"
+		"output/bwa_algn/{prefix}_val_{strand}.part_{parts}.sai"
 	params:
 		refdir = config["datadir"],
 		fasta = config["fasta"]
@@ -117,8 +117,8 @@ rule bwa_sampe:
 	benchmark: "output/benchmarks/bwa_sampe_pre={prefix}r1-2{suffix}.part_{parts}.bm"
 	#log: "output/cluster/logs/bwa_sampe_pre={pair}_{parts}.log"
 	input:
-		"output/bwa_algn/{prefix}r1{suffix}_1.part_{parts}.sai",
-		"output/bwa_algn/{prefix}r2{suffix}_2.part_{parts}.sai",
+		"output/bwa_algn/{prefix}r1{suffix}_val_1.part_{parts}.sai",
+		"output/bwa_algn/{prefix}r2{suffix}_val_2.part_{parts}.sai",
 		"output/trimmed_reads/{prefix}r1{suffix}_val_1.part_{parts}.fq.gz",
 		"output/trimmed_reads/{prefix}r2{suffix}_val_2.part_{parts}.fq.gz"
 	output:
@@ -145,15 +145,14 @@ rule preprocess_sams:
 		enzyme = config["enzyme_sites"]
 	shell: "cd {params.snakedir}/bin/ALLHiC/scripts/;\
 			perl PreprocessSAMs.pl {params.cwd}/{input[0]} {params.cwd}/{params.refdir}/{params.fasta} {params.enzyme};"
-			#cd {params.cwd};\
-			#mkdir output/filterSAM/ || true;\
-			#mv output/bwa_algn/*REduced* output/filterSAM/ || true"
 
 ## SORT BEFORE AND AFTER MERGE ; MERGE SPLIT FILES, NOT ALL FILES INTO ONE
 rule merge_bam:
 	message: "~-~ Merging bam files... ~-~"
 	threads: config["threads"]
 	benchmark: "output/benchmarks/merge_bams.pre_{prefix}.bm"
+	input:
+		expand("output/bwa_algn/{prefix}r1-2{suffix}.part_{parts}.REduced.paired_only.bam", prefix = PAIR_NAMES_1, suffix = PAIR_NAMES_2, parts = PARTS)
 	output:
 		"output/filterSAM/{prefix}.merged_sorted.bam"
 	shell: "mkdir output/filterSAM/ || true;\
@@ -184,6 +183,8 @@ rule merge_clean:
 	message: "~-~ Merging Cleaned BAM Files... ~-~"
 	benchmark: "output/benchmarks/merged_clean.bm"
 	threads: config["threads"]
+	input:
+		expand("output/ALLHiC/{prefix}r1-2{suffix}.clean.bam", prefix = PAIR_NAMES_1, suffix = PAIR_NAMES_2)
 	output:
 		"output/ALLHiC/sorted_collection.clean.bam"
 	shell: "cd output/ALLHiC/;\
@@ -199,22 +200,143 @@ rule allhic_corrector:
 	input:
 		"output/ALLHiC/sorted_collection.clean.bam"
 	output:
-		"output/ALLHiC/seq.corrected.fasta"
+		"output/ref_fixed/seq.corrected.fasta"
 	params:
-		snakedir = SNAKEDIR,
-		refdir = REFDIR,
+		snakedir = SNAKE_DIR,
+		refdir = REF_DIR,
 		fasta = config["fasta"]
-	shell: "python {params.snakedir}/bin/ALLHiC/bin/ALLHiC_corrector -m {input[0]} -r {params.refdir}/{params.fasta} -o {output[0]}"
+	shell: "mkdir output/ref_fixed/ || true;\
+			sambamba index -t {threads} {input[0]} -o {input[0]}.bai;\
+			python -t {threads} {params.snakedir}/bin/ALLHiC/bin/ALLHiC_corrector -m {input[0]} -r {params.refdir}/{params.fasta} -o {output[0]};\
+			bwa index -a bwtsw {output[0]}"
+
+## BWA IDEX  output/ALLHiC/seq.corrected.fasta
+rule bwa_index_fixed:
+	message: "Indexing fixed fasta file with bwa... ~-~"
+	benchmark: "output/benchmarks/bwa_index.fixed.bm"
+	input:
+		"output/ref_fixed/seq.corrected.fasta"
+	output:
+		"output/ref_fixed/seq.corrected.fasta.amb",
+		"output/ref_fixed/seq.corrected.fasta.ann",
+		"output/ref_fixed/seq.corrected.fasta.bwt",
+		"output/ref_fixed/seq.corrected.fasta.pac",
+		"output/ref_fixed/seq.corrected.fasta.sa"
+	shell: "bwa index -a bwtsw {output[0]}"
+
+## Samtools index
+rule samtools_index_fixed:
+	message: "Indexing fixed fasta file with samtools... ~-~"
+	benchmark: "output/benchmarks/samtools_index.fixed.bm"
+	input:
+		"output/ref_fixed/seq.corrected.fasta"
+	output:
+		"output/ref_fixed/seq.corrected.fasta.fai"
+	shell: "samtools faidx {input[0]}"
+
+## BWA ALN fastq
+rule bwa_algn_fixed:
+	message: "Aligning trimmed reads with fixed fasta file... ~-~"
+	benchmark: "output/benchmarks/bwa_algn.{prefix}_{strand}.part_{parts}.fixed.bm"
+	threads: config["threads"]
+	input:
+		trims = "output/trimmed_reads/{prefix}_val_{strand}.part_{parts}.fq.gz",
+		fasta = "output/ref_fixed/seq.corrected.fasta",
+		index = "output/ref_fixed/seq.corrected.fasta.amb"
+	output:
+		result = "output/bwa_algn_fixed/{prefix}_val_{strand}.part_{parts}.sai.fixed"
+	shell: "mkdir bwa_algn_fixed/ || true;\
+			bwa aln -t {threads} {input.fasta} {input.trims} > {output.result}"
+
+## BWA sampe
+rule bwa_sampe_fixed:
+	message: "Bwa sampe fixed... ~-~"
+	benchmark: "output/benchmarks/bwa_sampe_pre={prefix}r1-2{suffix}.part_{parts}.fixed.bm"
+	input:
+		map1 = "output/bwa_algn_fixed/{prefix}r1{suffix}_val_1.part_{parts}.sai.fixed",
+		map2 = "output/bwa_algn_fixed/{prefix}r2{suffix}_val_2.part_{parts}.sai.fixed",
+		trims1 = "output/trimmed_reads/{prefix}r1{suffix}_val_1.part_{parts}.fq.gz",
+		trims2 = "output/trimmed_reads/{prefix}r2{suffix}_val_2.part_{parts}.fq.gz",
+		fasta = "output/ref_fixed/seq.corrected.fasta",
+		index = "output/ref_fixed/seq.corrected.fasta.amb"
+	output:
+		result = "output/bwa_algn_fixed/{prefix}r1-2{suffix}.part_{parts}.fixed.sam"
+	shell: "bwa sampe {input.fasta} {input.map1} {input.map2} {input.trims1} {input.trims2} > {output.result}"
+
+## Preprocess sams
+rule preprocess_sams_fixed:
+	message: "Preparing fixed SAM files... ~-~"
+	benchmark: "output/benchmarks/preprocessSAMs_pre={prefix}.fixed.bm"
+	#log: "output/cluster/logs/preprocessSAMs_pre={pair}.part_{part}.log"
+	input:
+		sam = "output/bwa_algn_fixed/{prefix}.fixed.sam",
+		fasta = "output/ref_fixed/seq.corrected.fasta"
+	output:
+		result = "output/bwa_algn_fixed/{prefix}.fixed.REduced.paired_only.bam"
+	params:
+		snakedir = SNAKE_DIR,
+		cwd = CWD,
+		enzyme = config["enzyme_sites"]
+	shell: "cd {params.snakedir}/bin/ALLHiC/scripts/;\
+			perl PreprocessSAMs.pl {params.cwd}/{input.sam} {params.cwd}/{input.fasta} {params.enzyme};"
+
+## Merge bam
+rule merge_bam_fixed:
+	message: "Merging fixed bam files... ~-~"
+	benchmark: "output/benchmarks/merge_bams.pre_{prefix}.bm"
+	threads: config["threads"]
+	input:
+		expand("output/bwa_algn_fixed/{prefix}r1-2{suffix}.part_{parts}.fixed.REduced.paired_only.bam", prefix = PAIR_NAMES_1, suffix = PAIR_NAMES_2, parts = PARTS)
+	output:
+		"output/filterSAM_fixed/{prefix}.merged_sorted.fixed.bam"
+	shell: "mkdir filterSAM_fixed;\
+			cd output/filterSAM_fixed/;\
+			mv ../bwa_algn_fixed/{wildcards.prefix}.fixed.REduced* . || true;\
+			for file in {wildcards.prefix}.*.fixed.REduced.paired_only.bam; do sambamba sort -t {threads} $file -o sorted.$file; done;\
+			sambamba merge -t {threads} {wildcards.prefix}.merged.fixed.bam sorted.{wildcards.prefix}.*.fixed.REduced.paired_only.bam;\
+			sambamba sort -t {threads} -o {wildcards.prefix}.merged_sorted.fixed.bam {wildcards.prefix}.merged.fixed.bam;\
+			cd ../../" 
+
+## Filter bam
+rule filterBAM_fixed:
+	message: "~-~ Filtering fixed BAM for ALLHiC ~-~"
+	benchmark: "output/benchmarks/filterBAM.pre_{prefix}.fixed.bm"
+	input:
+		in_bam = "output/filterSAM_fixed/{prefix}.merged_sorted.fixed.bam",
+		fasta = "output/ref_fixed/seq.corrected.fasta.fai"
+	output:
+		out_sam = "output/filterSAM_fixed/{prefix}.clean.fixed.sam",
+		out_bam = "output/ALLHiC/{prefix}.clean.fixed.bam"
+	params:
+		fasta = config["fasta"],
+		snakedir = SNAKE_DIR
+	shell: "perl {params.snakedir}/bin/ALLHiC/scripts/filterBAM_forHiC.pl {input.in_bam} {output.out_sam};\
+			samtools view -bt {input.fasta} {output.out_sam} > {output.out_bam}"
+
+## Merge clean
+rule merge_fixed_bam:
+	message: "~-~ Merging fixed clean bam files... ~-~"
+	benchmark: "output/benchmarks/merged_clean.fixed.bm"
+	threads: config["threads"]
+	input:
+		expand("output/ALLHiC/{prefix}r1-2{suffix}.clean.fixed.bam", prefix = PAIR_NAMES_1, suffix = PAIR_NAMES_2)
+	output:
+		"output/ALLHiC/sorted_collection.clean.fixed.bam"
+	shell: "cd output/ALLHiC/;\
+			for file in *.clean.fixed.bam; do sambamba sort -t {threads} $file -o sorted.$file; done;\
+			sambamba merge -t {threads} collection.clean.fixed.bam sorted.*.clean.fixed.bam;\
+			sambamba sort -t {threads} -o sorted_collection.clean.fixed.bam collection.clean.fixed.bam;\
+			cd ../../"
 
 rule partition:
 	message: "~-~ Partitioning... ~-~"
-	benchmark: "output/benchmarks/ALLHiC_partition.enzyme={enzyme}.groups={groups}.bm"
+	benchmark: "output/benchmarks/ALLHiC_partition.bm"
 	input:
-		"output/ALLHiC/sorted_collection.clean.bam",
-		"output/ALLHiC/seq.corrected.fasta"
+		clean_bam = "output/ALLHiC/sorted_collection.clean.fixed.bam",
+		fasta = "output/ref_fixed/seq.corrected.fasta"
 	output:
-		"output/ALLHiC/sorted_collection.clean.counts_{enzyme}.{groups}g1.txt"
-		#"output/ALLHiC/p1={part1}_strand={diff}1-2_p2={part2}.clean.clm"
+		expand("output/ALLHiC/sorted_collection.clean.fixed.counts_{enzyme}.{groups}g{group_selection}.txt", enzyme = config["enzyme_sites"], groups = config["groups"], group_selection = GROUP_LIST),
+		"output/ALLHiC/sorted_collection.clean.fixed.clm"
 	params:
 		snakedir = SNAKE_DIR,
 		cwd = CWD,
@@ -222,7 +344,7 @@ rule partition:
 		groups = config["groups"],
 		ezs = config["enzyme_sites"]
 	shell: "cd {params.snakedir}/bin/ALLHiC/bin/;\
-			ALLHiC_partition -b {params.cwd}/{input[0]} -r {params.cwd}/output/ALLHiC/seq.corrected.fasta -e {params.ezs} -k {params.groups};\
+			ALLHiC_partition -b {params.cwd}/{inputclean_bam} -r {params.cwd}/{input.fasta} -e {params.ezs} -k {params.groups};\
 			cd {params.cwd}"
 
 rule optimize:
@@ -230,10 +352,10 @@ rule optimize:
 	benchmark: "output/benchmarks/allhic_optimizing.enzyme_{enzyme}.groups_{groups}.part_{group_section}.bm"
 	#log: "output/cluster/logs/allhic_optimizing_pre={fastq}.log"
 	input:
-		group_section = "output/ALLHiC/sorted_collection.clean.counts_{enzyme}.{groups}g{group_section}.txt",
-		clm = "output/ALLHiC/sorted_collection.clean.clm"
+		group_section = "output/ALLHiC/sorted_collection.clean.fixed.counts_{enzyme}.{groups}g{group_section}.txt",
+		clm = "output/ALLHiC/sorted_collection.clean.fixed.clm"
 	output:
-		"output/ALLHiC/sorted_collection.clean.counts_{enzyme}.{groups}g{group_section}.tour"
+		"output/ALLHiC/sorted_collection.clean.fixed.counts_{enzyme}.{groups}g{group_section}.tour"
 	params:
 		snakedir = SNAKE_DIR
 	shell: "{params.snakedir}/bin/ALLHiC/bin/allhic optimize {input.group_section} {input.clm}"
