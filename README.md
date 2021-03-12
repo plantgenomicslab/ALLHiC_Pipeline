@@ -11,7 +11,7 @@ Pipeline for Straightforward Usage of ALLHic
 7. bwa
 8. Anaconda (optional, necessary for simple environment)
 > Note: 3-7 included in env.yml if installed using Anaconda.
-
+___
 ### Environment
 The pipeline may be activated wherever the user wishes, but the snakefile needs to have the appropriate subfiles and subdirectories accompanying it in the same directory.
 1. The ALLHiC software file must be downloaded whole (such as with git clone) and placed into the bin subdirectory.  
@@ -21,7 +21,7 @@ The pipeline may be activated wherever the user wishes, but the snakefile needs 
 3. The rest of the software may be downloaded individually or through Anaconda.  
 `conda env create -f env/env.yml`
 > Note: Default environment name is "allhic." Name can be modified in env/env.yml file, simply change the text after "name:"
-   
+___   
 ### Usage
 (A) Without Cluster
 1. Modify the config.json file to meet your needs and environment.
@@ -34,7 +34,7 @@ The pipeline may be activated wherever the user wishes, but the snakefile needs 
 3. Modify the run.sh file to meet your needs.
 4. Run run.sh  
 `sh run.sh`
-
+___
 ### Options Description  
 There are a few files that the pipeline works with that need to be modified to fit your desired requirements. There are three files that might be need to be modified: config.json, cluster.json, and run.sh.  
 
