@@ -1,0 +1,41 @@
+# Define output files
+output_bam = "{sample}_aligned_reads.bam"
+
+# Define trimming parameters
+trim_length = 10
+num_chunks = 10
+
+# Define rule for trimming raw reads
+rule trim_reads:
+    input:
+        fastq="{sample}_raw_reads.fastq"
+    output:
+        trimmed="{sample}_trimmed_reads.fastq"
+    conda:
+        "envs/fastp.yaml" # conda environment file with fastp installed
+    shell:
+        "fastp --in {input.fastq} --split_by_lines --split_prefix_digits 1 "
+        "--split {num_chunks} --length_required {trim_length} "
+        "--out1 {output.trimmed}"
+
+# Define rule for aligning reads using Chromap
+rule align_reads:
+    input:
+        trimmed=expand("{sample}_trimmed_reads.fastq_{i}.gz", sample=config["samples"], i=range(1, num_chunks+1))
+    output:
+        bam=output_bam
+    conda:
+        "envs/chromap.yaml" # conda environment file with chromap installed
+    shell:
+        "chromap align -t 8 -f {input} -o {output.bam}"
+
+# Define final rule to run both trimming and alignment
+rule run_pipeline:
+    input:
+        fastq=expand("{sample}_raw_reads.fastq", sample=config["samples"])
+    output:
+        bam=output_bam
+    conda:
+        ["envs/fastp.yaml", "envs/chromap.yaml"] # conda environment files with fastp and chromap installed
+    shell:
+        "snakemake --use-conda {output.bam}"
