@@ -1,0 +1,169 @@
+#!snakemake
+# conda activate allhic
+# snakemake -s allhic.snakefile --cores 10 -p --use-conda
+# samtools bedtools fastp chromap
+
+import os
+os.makedirs("samples/trimmed/", exist_ok=True)
+os.makedirs("samples/bam/", exist_ok=True)
+os.makedirs("samples/sam/", exist_ok=True)
+os.makedirs("samples/output/", exist_ok=True)
+os.makedirs("logs/rule/", exist_ok=True)
+
+REFERENCE = "reference/genome.fa"
+SAMPLES, = glob_wildcards("samples/raw/{sample}_R1.fastq.gz")
+CTG_TABLE = "reference/Allele.ctg.table"
+PARTITION = "17"
+
+MAX_PARTITION = []
+for i in range(1, int(PARTITION)+1):
+    MAX_PARTITION.append(i)
+num_chunks = 10
+SPLITS = ["{0:03}".format(i) for i in range(1, num_chunks+1)]
+
+ENZYME_SITE = "MBOI"
+ENZYME_SEQ = ""
+if ENZYME_SITE == "Arima" or ENZYME_SITE == "GATCGATC_GANTGATC_GANTANTC_GATCANTC":
+    ENZYME_SEQ = "GATCGATC_GANTGATC_GANTANTC_GATCANTC"
+elif ENZYME_SITE == "MBOI" or ENZYME_SITE == "GATC":
+    ENZYME_SEQ = "GATC"
+elif ENZYME_SITE == "HINDIII" or ENZYME_SITE == "AAGCTT":
+    ENZYME_SEQ = "AAGCTT"
+else:
+    raise ValueError("ValueError: enzyme_sites parameter is an invalid value.")
+
+rule all:
+        input:
+                "samples/prunning.clm",
+                expand("samples/prunning.counts_{enzyme_seq}.{parition}g{max_partition}.tour", enzyme_seq = ENZYME_SEQ, parition = PARTITION, max_partition = MAX_PARTITION)
+
+rule refIndex:
+    message: "~-~ Trimming fastq files... ~-~"
+    params: REFERENCE=REFERENCE
+    output:
+        index = "reference/genome.fa.index",
+        fai = "reference/genome.fa.fai"
+    shell: """
+        chromap -i -r {params.REFERENCE} -o {output.index}
+        samtools faidx {params.REFERENCE}
+    """
+
+rule readTrim:
+    message: "~-~ Trimming fastq files... ~-~"
+    threads: 10
+    input:
+        fwd = "samples/raw/{sample}_R1.fastq.gz",
+        rev = "samples/raw/{sample}_R2.fastq.gz"
+    output:
+        json = "samples/trimmed/{sample}.json",
+        html = "samples/trimmed/{sample}.html"
+    shell: """
+        fastp \
+                -i {input.fwd} \
+                -I {input.rev} \
+                -o samples/trimmed/{wildcards.sample}_R1.fastq.gz \
+                -O samples/trimmed/{wildcards.sample}_R2.fastq.gz \
+        -j {output.json} \
+                -h {output.html} \
+        -w {threads} \
+        --split {threads} \
+        --split_prefix_digits 3 \
+        --average_qual 20 \
+        --length_limit 400 \
+        --cut_mean_quality 10
+    """
+
+rule readMapping:
+    message: "~-~ Trimming fastq files... ~-~"
+    threads: 10
+    params: REFERENCE=REFERENCE
+    input:
+        index = "reference/genome.fa.index",
+        json = "samples/trimmed/{sample}.json"
+    output:
+        sam = "samples/sam/{split}.{sample}.sam"
+    shell: """
+        chromap \
+        --SAM \
+        --preset hic \
+        -t {threads} \
+        -x {input.index} \
+        -r {params.REFERENCE} \
+        -1 samples/trimmed/{wildcards.split}.{wildcards.sample}_R1.fastq.gz \
+        -2 samples/trimmed/{wildcards.split}.{wildcards.sample}_R2.fastq.gz \
+        -o {output.sam}
+    """
+
+rule PreprocessSAMs:
+    message: "~-~ Trimming fastq files... ~-~"
+    threads: 10
+    params:
+        REFERENCE=REFERENCE,
+        ENZYME_SITE=ENZYME_SITE,
+    input:
+        sam = "samples/sam/{split}.{sample}.sam"
+    output:
+        bampaired = "samples/sam/{split}.{sample}.REduced.paired_only.bam"
+    shell: """
+        PreprocessSAMs.pl {input.sam} {params.REFERENCE} {params.ENZYME_SITE}
+    """
+
+rule mergeBAMs:
+    message: "~-~ Trimming fastq files... ~-~"
+    threads: 10
+    input:
+        bampaired = expand("samples/sam/{split}.{sample}.REduced.paired_only.bam", split=SPLITS, sample=SAMPLES)
+    output:
+        merge_bam = "samples/bam/sample.clean.bam"
+
+    shell: """
+        samtools merge --threads {threads}  {output.merge_bam} {input.bampaired}
+    """
+
+rule Prune:
+    params:
+        CTG_TABLE=CTG_TABLE,
+        REFERENCE=REFERENCE
+    input:
+        merge_bam = "samples/bam/sample.clean.bam"
+    output:
+        prune_bam = "samples/prunning.bam"
+    shell: """
+        if [[ -e "{params.CTG_TABLE}" ]]; then
+                ALLHiC_prune -i {params.CTG_TABLE} -b {input.merge_bam} -r {params.REFERENCE}
+        else
+                ln -rs {input.merge_bam} {output.prune_bam}
+        fi
+        """
+
+rule Partitioning:
+    message: "~-~ Trimming fastq files... ~-~"
+    threads: 10
+    params:
+        REFERENCE=REFERENCE,
+        ENZYME_SITE=ENZYME_SITE,
+        ENZYME_SEQ=ENZYME_SEQ,
+        PARTITION = PARTITION,
+        MAX_PARTITION =MAX_PARTITION
+    input:
+        prune_bam = "samples/prunning.bam"
+    output:
+        clm = "samples/prunning.clm"
+
+    shell: """
+        ALLHiC_partition -b {input.prune_bam} -r {params.REFERENCE} -e {params.ENZYME_SITE} -k {params.PARTITION}
+    """
+
+rule Optimize:
+    message: "~-~ Optimizing... ~-~"
+    threads: 10
+    params:
+        ENZYME_SEQ=ENZYME_SEQ,
+        PARTITION = PARTITION,
+        MAX_PARTITION =MAX_PARTITION
+    input:
+        clm = "samples/prunning.clm"
+    output:
+        "samples/prunning.counts_{ENZYME_SEQ}.{PARTITION}g{MAX_PARTITION}.tour"
+    shell:
+        "allhic optimize samples/prunning.counts_{wildcards.ENZYME_SEQ}.{wildcards.PARTITION}g{wildcards.MAX_PARTITION}.txt {input.clm}"
