@@ -1,13 +1,14 @@
 {
   "__default__": {
-    "account": "", //Needs to be added
+    "account": "cpu-s1-pgl-0",
     "memory": "64g",
-    "name": "JOBNAME.{rule}.{wildcards}",
-    "ncpus": 4,
+    "name": "ALLHIC.{rule}.{wildcards}",
+    "ncpus": 10,
     "nodes": 1,
-    "partition": "", //Needs to be added
+    "partition": "cpu-s1-pgl-0",
     "time": "10-08:00:00",
-    "output": "output/cluster/logs/{rule}.{wildcards}.out",
-    "error": "output/cluster/logs/{rule}.{wildcards}.err"
+    "output": "logs/rule/{rule}.{wildcards}.out",
+    "error": "logs/rule/{rule}.{wildcards}.err"
   }
 }
+
