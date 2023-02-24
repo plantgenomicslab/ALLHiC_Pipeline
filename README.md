@@ -1,6 +1,13 @@
 # ALLHiC_Pipeline
 Pipeline for Straightforward Usage of ALLHic
 
+### 
+reference/genome.fa
+samples/raw/{sample}_R1.fastq.gz
+reference/Allele.ctg.table # optional
+
+
+
 ### PREREQUISITES
 1. ALLHiC Software (https://github.com/tangerzhang/ALLHiC)
 2. getFalen.pl (obtained from tangerzhang's my_script repository on GitHub) (https://github.com/tangerzhang/my_script/blob/master/getFaLen.pl)
